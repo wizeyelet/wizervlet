@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN"
+"http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+
+<mapper namespace="com.tj.dao.NoticeDao">
+	<!-- resultType은 반드시 있어야 함 -->
+	<select id="list" parameterType="HashMap" resultType="HashMap">
+	SELECT b.board_seq AS boardSeq, 
+		   b.type_seq AS typeSeq,
+		   b.member_idx AS memberIdx,
+		   b.member_id AS memberId, 
+		   b.member_nick AS memberNick,
+		   b.title,
+		   b.hits, 
+		   <!-- date_format(create_date, '%Y-%m-%d %H:%i:%s') AS createDate -->
+		   b.create_date AS createDate,
+		   a.file_idx AS fileIdx
+	  FROM board b
+	LEFT JOIN board_attach a ON b.board_seq=a.board_seq AND b.type_seq=a.type_seq
+	 WHERE 1=1
+	    AND b.type_seq = #{typeSeq}
+	<if test="searchType != null and searchType != ''">
+		AND ( b.title LIKE CONCAT('%', #{searchText}, '%') OR b.content LIKE CONCAT('%', #{searchText}, '%') )
+	</if>
+	<if test="(searchType != null and searchType == 'title') and searchText != ''">
+		AND b.title LIKE CONCAT('%', #{searchText}, '%')
+	</if>
+	<if test="(searchType != null and searchType == 'content') and searchText != ''">
+		AND b.content LIKE CONCAT('%', #{searchText}, '%')
+	</if>
+	<if test="sidx != null and sidx != '' and sord != null and sord != ''">
+	ORDER BY b.${sidx} ${sord}
+	</if>
+	<if test="start != null and start != '' and rows != null and rows != ''">
+	LIMIT ${start}, ${rows}
+	</if>	
+	</select>
+	
+	<select id="getTotalArticleCnt" parameterType="HashMap" resultType="int">
+	SELECT COUNT(board_seq)
+	  FROM board
+	 WHERE 1=1
+	    AND type_seq = #{typeSeq}
+	<if test="searchType != null and searchText != ''">
+		AND ( title LIKE CONCAT('%', #{searchText}, '%') OR content LIKE CONCAT('%', #{searchText}, '%') )
+	</if>
+	<if test="(searchType != null and searchType == 'title') and searchText != ''">
+		AND title LIKE CONCAT('%', #{searchText}, '%')
+	</if>
+	<if test="(searchType != null and searchType == 'content') and searchText != ''">
+		AND content LIKE CONCAT('%', #{searchText}, '%')
+	</if>
+	</select>
+		
+	<update id="updateHits" parameterType="int">
+	update board set hits = hits+1 where type_seq=#{0} and board_seq=#{1}
+	</update>
+
+	<delete id="delete" parameterType="int">
+	delete from board where type_seq=#{0} and board_seq=#{1}
+	</delete>
+
+	<select id="getBoard" parameterType="int" resultType="Map">
+	select * from board where type_seq=#{0} and board_seq=#{1}
+	</select>
+
+	<update id="update" parameterType="java.util.HashMap">
+	update board set title = #{title}, content = #{contents}, has_file= #{hasFile}, update_date = now() where board_seq = #{boardSeq} and type_seq = #{typeSeq}
+	</update>
+
+	<!-- myBatis에서는 auto Increment가 되지 않으므로 useGeneratedKeys를 true로 바꿔 사용하고, keProperty에서 자동생성할 컬럼명을 지정해준다. -->
+	<insert id="write" parameterType="Map" useGeneratedKeys="true" keyProperty="boardSeq">
+	insert into board(`type_seq`, `member_idx`, `member_id`, `member_nick`, `title`, `content`, `has_file`, `create_date`)
+	values(#{typeSeq},${memberIdx},#{memberId},#{memberNick},#{title},#{contents},#{hasFile},now())
+	</insert>	
+
+	<insert id="writeMap" parameterType="java.util.HashMap">
+	insert into board(type_seq, member_idx, member_id, member_nick, title, content, create_date)
+	values(#{typeSeq},#{memberIdx},#{memberId},#{memberNick},#{title},#{content},now())
+	</insert>	
+	
+	<update id="attachDeleted" parameterType="int">
+	update board set has_file = 0, update_date = now() where board_seq = #{0} and type_seq = #{1}
+	</update> 
+</mapper>
